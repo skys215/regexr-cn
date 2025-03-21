@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 /**
  * Setup the bare minimum required to run the app.
  */
-error_reporting(error_reporting()^E_WARNING);
+
 $cwd = realpath(dirname(__FILE__));
 
 if (!file_exists("$cwd/Config.php")) {

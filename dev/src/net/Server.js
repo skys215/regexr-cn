@@ -127,9 +127,9 @@ export default class Server {
 		let req = new XMLHttpRequest(), p = new ServerPromise(req, postprocess), params = [];
 		req.open("POST", Server.url);
 		req.setRequestHeader("Content-type", "application/x-www-form-urlencoded", true);
-		req.timeout = 5000;
+		req.timeout = 30*1000;
 		data.action = action;
-		
+
 		if (Server.isLocal && Server.useBeta) { data.userId = 111; }
 		for (let n in data) { params.push(n + "=" + encodeURIComponent(data[n])); }
 		if (Server.isLocal) { console.log(data); }

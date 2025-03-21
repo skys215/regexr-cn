@@ -66,6 +66,11 @@ function now() {
     return microtime(true)*1000;
 }
 
+function isGuid($guid) {
+    $match = preg_match("/^[a-f0-9]{8}(-[a-f0-9]{4}){4}[a-f0-9]{8}$/i", $guid);
+    return $match == 1;
+}
+
 function formatActionNameForExecution($name) {
     return str_replace("/", "\\", $name);
 }
@@ -109,7 +114,7 @@ function convertFromURL($id) {
 }
 
 function createPatternNode($row) {
-    $tool = idx($row, 'state');
+    $tool = idx($row, 'state') ?? '';
 
     // Replace a few hidden characters with there string counterparts. Otherwise JSON parsing will break.
     $tool = preg_replace(["/\n/", "/\r/", "/\t/"], ["\\\\\\n", "\\\\\\r", "\\\\\\t"], $tool);
@@ -122,9 +127,10 @@ function createPatternNode($row) {
     }
 
     // Migrate over old "replace" and "state" formats.
-    if (!empty($tool) && array_key_exists('toolValue', $tool)) {
+    $toolValue = idx($tool, 'toolValue');
+    if (!empty($tool) && !is_null($toolValue)) {
         $id =  $tool['tool'];
-        $value = $tool['toolValue'];
+        $value = $toolValue;
         $tool = ['id' => $id, 'input' => $value];
     } else if (!empty($replace) && empty($tool)) {
         $tool['id'] = 'replace';
@@ -138,36 +144,34 @@ function createPatternNode($row) {
     $result = array(
         'id' => convertToURL(idx($row, 'id')),
         'keywords' => idx($row, 'keywords'),
-        'name' => stripslashes(idx($row, 'name')),
-        'description' => stripslashes(idx($row, 'description')),
-        'dateAdded' => strtotime(stripslashes(idx($row, 'dateAdded')))*1000,
+        'name' => stripslashes(idx($row, 'name') ?? ''),
+        'description' => stripslashes(idx($row, 'description') ?? ''),
+        'dateAdded' => strtotime(stripslashes(idx($row, 'dateAdded') ?? ''))*1000,
         'flavor' => idx($row, 'flavor'),
-        'expression' => stripslashes(idx($row, 'pattern')),
+        'expression' => stripslashes(idx($row, 'pattern') ?? ''),
         'text' => idx($row, 'content'),
         'tool' => $tool,
         'rating' => idx($row, 'rating'),
         'userId' => intval(idx($row, 'owner')),
-        'author' => stripslashes(idx($row, 'author')),
+        'author' => stripslashes(idx($row, 'author') ?? ''),
         'userRating' => idx($row, 'userRating') ?? '0',
         'favorite' => !is_null(idx($row, 'favorite')),
         'access' => idx($row, 'visibility'),
         'mode' => idx($row, 'mode'),
-        'tests' => json_decode(idx($row, 'tests'))
+        'tests' => json_decode(idx($row, 'tests') ?? '')
     );
 
     return $result;
 }
 
-function createPatternSet($result, $total = -1, $startIndex = 0, $limit = 100) {
+function createPatternSet($result, $limit = 100) {
     $results = array();
     for ($i=0;$i<count($result);$i++) {
         $results[] = createPatternNode($result[$i]);
     }
 
     return array(
-        'startIndex' => $startIndex,
         'limit' => $limit,
-        'total' => $total,
         'results' => $results
     );
 }

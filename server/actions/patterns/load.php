@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use \core\Cache;
-
 namespace patterns;
 
 class load extends \core\AbstractAction {
@@ -74,7 +72,7 @@ class load extends \core\AbstractAction {
     }
 
     function trackVisit($id) {
-        $sql = "UPDATE patterns SET visits=visits+1 WHERE id=?";
+        $sql = "UPDATE patterns SET visits=visits+1, lastAccessed=NOW() WHERE id=?";
         $this->db->execute($sql, [
             ["s", $id]
         ]);

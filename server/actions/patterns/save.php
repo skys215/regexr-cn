@@ -31,7 +31,7 @@ class save extends \core\AbstractAction {
     function savePattern($userProfile) {
         $keywords = $this->getValue('keywords');
         $name = $this->getValue('name');
-        $pattern = addslashes($this->getValue('expression'));
+        $pattern = addslashes($this->getValue('expression') ?? '');
         $content = $this->getValue('text');
         $description = $this->getValue('description');
         $id = $this->getValue('id');
@@ -54,7 +54,7 @@ class save extends \core\AbstractAction {
             $protectedState = \core\PatternVisibility::PROTECTED;
             $privateState = \core\PatternVisibility::PRIVATE;
 
-            $sql = "SELECT * FROM patterns WHERE id=? && owner=? && visibility IN (?, ?) LIMIT 1";
+            $sql = "SELECT * FROM patterns WHERE id=? AND owner=? AND visibility IN (?, ?) LIMIT 1";
             $existingPattern = $this->db->execute($sql, [
                 ["s", $patternId],
                 ["s", $userProfile->userId],
@@ -101,7 +101,7 @@ class save extends \core\AbstractAction {
                     array_push($sqlParams, ["s", $access]);
                 }
 
-                array_push($sqlParams, ["i", $patternId]);
+                array_push($sqlParams, ["s", $patternId]);
 
                 $this->db->execute($sql, $sqlParams);
             }
