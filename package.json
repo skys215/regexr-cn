@@ -4,7 +4,7 @@
   "description": "DESCRIPTION",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "preinstall": "npx npm-force-resolutions"
   },
   "author": "Grant Skinner",
   "license": "GPL-3.0",
@@ -24,6 +24,7 @@
     "gulp-svgstore": "^6.1.0",
     "gulp-uglify": "^3.0.0",
     "gulp-uglifycss": "^1.0.8",
+    "node-sass": "4.5.3",
     "rollup-plugin-babel": "2.7.1",
     "rollup-stream": "1.23.1",
     "run-sequence": "^2.2.0",
@@ -38,5 +39,11 @@
   "browserslist": [
     "> 2%",
     "not ie < 10"
-  ]
+  ],
+  "dependencies": {
+    "natives": "^1.1.6"
+  },
+  "resolutions": {
+    "graceful-fs": "^4.2.11"
+  }
 }

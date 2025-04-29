@@ -67,6 +67,15 @@ export default class RegExr extends EventDispatcher {
 		window.onbeforeunload = (e) => this.unsaved ? "你有未保存的变动。" : null;
 		this.resetUnsaved();
 
+
+		//加载广告
+		this._initAds();
+	}
+
+	_initAds() {
+		_native({
+			targetClass: 'native-js'
+		});
 	}
 
 	_localInit() {
