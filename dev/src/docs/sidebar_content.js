@@ -24,7 +24,7 @@ home.label = "菜单";
 home.desc = "[from HTML]";
 home.kids = [
 
-	
+
 	{
 	label: "正则表达式设置",
 	id: "share",
@@ -43,7 +43,7 @@ home.kids = [
 		}
 	]
 	},
-	
+
 	{
 	label: "我的正则表达式",
 	id:"favorites",
@@ -52,17 +52,17 @@ home.kids = [
 	search: true,
 	kids: []
 	},
-	
+
 	{
 	label: "备忘单",
 	id:"cheatsheet",
 	el: "#cheatsheet"
 	},
-	
+
 	{ // injected from Reference
 	id:"reference"
 	},
-	
+
 	{
 	label: "正则表达式社区",
 	id: "community",
@@ -76,12 +76,12 @@ home.kids = [
 	{
 	label: "帮助",
 	id: "help",
-	desc: "为RegExr提供帮助。请参阅<b>RegEx参考</b>来完善改进正则表达式。",
+	desc: "RegExr的帮助。有关正则表达式的用法，请阅读<b>RegEx参考</b>。",
 	kids: [
 
 		{
 		label:"关于",
-		desc:"RegExr v[build-version] ([build-date])."+
+		desc:"RegExr v<%= build_version %> (<%= build_date %>)."+
 			"<p>由 <a href='http://twitter.com/gskinner/' target='_blank'>Grant Skinner</a> 和 <a href='http://gskinner.com/' target='_blank'>gskinner</a> 团队创建, 并使用了 <a href='http://createjs.com/' target='_blank'>CreateJS</a> & <a href='http://codemirror.net/' target='_blank'>CodeMirror</a> 库.</p>"+
 			"<p>由 <a href='https://github.com/skys215' target='_blank'>skys215</a> 和 <a href='https://github.com/yaoyuan4102' target='_blank'>yaoyuan4102</a> 翻译成中文。</p>"+
 			"<p>您可以在 <a href='http://github.com/gskinner/regexr/' target='_blank'>GitHub</a> 上提供反馈和记录bugs.</p>" +
@@ -99,7 +99,7 @@ home.kids = [
 			label:"表达式面板",
 			desc:"您可以在此处输入要测试的正则表达式。您的输入结果会在<b>文字</b>和<b>工具</b>面板中自动更新。"+
 				"滚动表达式以获取有关每个元字符的信息。"+
-				"<p>右侧的按钮允许您切换RegEx引擎，或编辑表达式字符。</p>"
+				"<p>右侧的按钮允许您切换RegEx引擎，或修改模式修饰符。</p>"
 			},
 			{
 			label:"文本面板",
@@ -108,9 +108,15 @@ home.kids = [
 				"<p>在行的开头或结尾处的较浅色盖子表示行之间继续匹配。</p>"
 			},
 			{
+			label:"测试面板",
+			desc:"在这里你可以创建一套测试，用于实时验证你的<b>正则表达式</b>。"+
+				"<p>一个测试可以检查表达式在测试文本中匹配到了任意内容、所有内容还是没有匹配到内容。</p>"+
+				"<p>通过点击<b>文本</b>面板上方的开关来使用此功能。当你点击保存时，文本和测试都将保存。</p>"
+			},
+			{
 			label:"工具面板",
-			desc:"单击<b>文本</b>面板下方的<b>工具</b>标题栏以显示或隐藏<b>工具</b>面板。"+
-				"<p>工具提供了不同的查询结果的方式。</p>",
+			desc:"点击在标题栏<b>文本</b>下方的<b>工具</b>面板来显示或隐藏工具面板。"+
+				"<p>工具提供了数种方法浏览或处理匹配结果。</p>",
 			kids: [
 				{
 				label:"替换",
@@ -188,13 +194,13 @@ home.kids = [
 		label:"支持字符串查询",
 		desc:"除了内置的<b>保存</b>机制，RegExr还可以创建可共享的链接。RegExr还支持通过查询字符串进行正则表达式预填充。"+
 			"<p>字符串查询参数:<ul>"+
-			"<li><code>引擎</code> - RegEx引擎(<code>js</code> 或 <code>pcre</code>)</li>"+
-			"<li><code>表达式</code> - 填充表达式区域. 建议使用元字符传递完整表达式(<code>/.*/ig</code>)，而不仅仅是正则表达式(<code>.*</code>)</li>"+
-			"<li><code>文本</code> - 填充文本区域</li>"+
-			"<li><code>工具</code> - 设置工具 (替换, 列表, 详细信息, 或 说明)</li>"+
-			"<li><code>输入</code> - 填充工具输入字段</li>"+
+			"<li><code>engine</code> - RegEx引擎(<code>js</code> 或 <code>pcre</code>)</li>"+
+			"<li><code>expression</code> - 填充表达式区域. 建议使用元字符传递完整表达式(<code>/.*/ig</code>)，而不仅仅是正则表达式(<code>.*</code>)</li>"+
+			"<li><code>text</code> - 填充文本区域</li>"+
+			"<li><code>tool</code> - 设置工具 (replace, list, details, 或 explain)。</li>"+
+			"<li><code>input</code> - 填充工具输入字段。当tool=replace时，input的值代表替换的值。目前只对replace或list有效。填多个时只对最后填写的生效。</li>"+
 			"</ul></p>"+
-			"Ex. <a href='http://regexr.com/?expression=/./g&text=test'>regexr.com/?expression=/./g&text=test</a>"
+			"Ex. <a href='http://regexr-cn.com/?expression=/./g&text=test'>regexr.com/?expression=/./g&text=test</a>"
 		}
 	]
 	}

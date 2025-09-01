@@ -77,7 +77,7 @@ o.kids = [
 		token:"."
 		},
 		{
-		id: "matchany",
+		id: "matchanyset",
 		label:"完全通配",
 		desc:"可以用来匹配所有字符，包括换行符，但是除了dotall标符(<code>s</code>)."+
 			"<p>另外一种形式是<code>[^]</code>, 但是它不被所有浏览器支持</p>",
@@ -279,7 +279,7 @@ o.kids = [
 		}
 	]
 	},
-	
+
 	{
 	label: "转义字符",
 	id:"escchars",
@@ -298,7 +298,7 @@ o.kids = [
 		{
 		id:"escoctal",
 		label:"八进制转义",
-		desc:"八进制转义以<code>\\000</code>为开头。",
+		desc:"八进制转义的形式为<code>\\000</code>。",
 		ext:"数字值必须小于255(<code>\\377</code>)。", // PCRE profile adds to ext.
 		example:["\\251","RegExr is \u00A92014"],
 		token:"\\000"
@@ -347,7 +347,7 @@ o.kids = [
 		}
 	]
 	},
-	
+
 	{
 	label: "分组 & 引用",
 	id:"groups",
@@ -366,7 +366,7 @@ o.kids = [
 		tip:"创建一个名为'{{name}}'的捕获分组。",
 		desc:"创建一个可以通过指定名称引用的捕获分组。",
 		ext:"<p>可以用不同语法使用这个特性：</p><p><code>(?'name'ABC)</code> <code>(?P&lt;name>ABC)</code> <code>(?&lt;name>ABC)</code></p>",
-		token:"(?'name'ABC)"
+		token:"(?<name>ABC)"
 		},
 		{
 		id:"namedref",
@@ -433,7 +433,7 @@ o.kids = [
 		}
 	]
 	},
-	
+
 	{
 	label: "前后查找",
 	id:"lookaround",
@@ -475,12 +475,12 @@ o.kids = [
 		}
 	]
 	},
-	
+
 	{
 	label: "量词 & 多选",
 	id:"quants",
 	desc: "量词指定了前面的标记需要出现的次数。默认情况下，量词是贪婪的，会尽可能多地匹配字符。"+
-		"<hr/>多选表现起来像 逻辑与，匹配这个或那个序列。",
+		"<hr/>多选表现起来像 逻辑或，匹配这个或那个序列。",
 	kids: [
 		{
 		id:"plus",
@@ -525,7 +525,7 @@ o.kids = [
 		},
 		{
 		id:"possessive",
-		label: "占有型",
+		label: "贪婪",
 		desc:"令前面的量词贪婪，但不回溯。它会尽可能多地匹配字符，但不会为了匹配后面的标记而释放它。",
 		ext:"<p>例如 <code>/.*a/</code> 会匹配到 <code>aaa</code>, 但 <code>/.*+a/</code> 则不会。因为重复的<code>.</code>会匹配、但不会为了匹配最后一个字符<code>a</code>而释放。</p>",
 		token:"+"
@@ -533,14 +533,14 @@ o.kids = [
 		{
 		id:"alt",
 		label:"多选",
-		desc:"多选表现起来像 逻辑与。匹配<code>|</code>前面的或后面的表达式。",
+		desc:"多选表现起来像 逻辑或。匹配<code>|</code>前面的或后面的表达式。",
 		ext:"<p>它可以用在分组里面，或在整个表达式中使用。会按顺序尝试匹配。</p>",
 		example:["b(a|e|i)d","bad bud bod bed bid"],
 		token:"|"
 		}
 	]
 	},
-	
+
 	{
 	label: "特殊",
 	id:"other",
@@ -644,7 +644,7 @@ o.kids = [
 		}
 	]
 	},
-	
+
 	{
 	id:"flags",
 	label:"标识",

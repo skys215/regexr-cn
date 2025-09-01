@@ -168,7 +168,7 @@ export default class Expression extends EventDispatcher {
 	
 	_initTooltips(el) {
 		const template = $.template`<svg class="inline check icon"><use xlink:href="#check"></use></svg> ${"label"}`;
-		let flavorData = app.flavor.profiles.map((o)=>({id:o.id, label:o.label+" ("+(o.browser?"Browser":"Server")+")"}));
+		let flavorData = app.flavor.profiles.map((o)=>({id:o.id, label:o.label+" ("+(o.browser?"浏览器端":"服务器端")+")"}));
 		
 		this.flavorBtn = $.query("section.expression .button.flavor", el);
 		this.flavorEl = $.query("#library #tooltip-flavor");
@@ -189,11 +189,13 @@ export default class Expression extends EventDispatcher {
 	_onFlavorListChange() {
 		app.tooltip.toggle.hide("flavor");
 		app.flavor.value = this.flavorList.selected;
+		Track.page("flavor/"+this.flavorList.selected);
 	}
 	
 	_onFlagListChange() {
 		let sel = this.flagsList.selected;
 		this.flags = sel ? sel.join("") : "";
+		Track.event("set_flags", "engagement", this.flags);
 	}
 	
 	_onFlavorChange() {

@@ -20,7 +20,6 @@ import EventDispatcher from "../events/EventDispatcher";
 
 import $ from "../utils/DOMUtils"
 
-import Tooltip from "../controls/Tooltip";
 import List from "../controls/List";
 import Server from "../net/Server";
 

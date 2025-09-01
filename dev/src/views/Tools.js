@@ -100,9 +100,9 @@ export default class Tools extends EventDispatcher {
 		this.toolListEl = $.query(".toollist", this.headerEl);
 		let data = [
 			{label:"替换",id:"replace"},
-			{label:"列表",id:"List"},
-			{label:"详情",id:"Details"},
-			{label:"解释",id:"Explain"},
+			{label:"列表",id:"list"},
+			{label:"详情",id:"details"},
+			{label:"解释",id:"explain"},
 		];
 		this.toolList = new List(this.toolListEl, {data});
 		this.toolList.on("change", ()=> this._handleListChange());
@@ -141,6 +141,7 @@ export default class Tools extends EventDispatcher {
 	
 	_handleListChange() {
 		this.show(this.toolList.selected);
+		Track.page("tool/"+this.toolList.selected);
 	}
 	
 	_handleHeaderClick(evt) {

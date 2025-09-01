@@ -19,24 +19,24 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import Utils from "../utils/Utils.js";
 
 export default class Reference {
-	
+
 	constructor(content, flavor, config) {
 		this._config = config;
 		this._flavor = flavor;
 		this._flavor.on("change", ()=> this._flavorChange());
-		
+
 		this._injectEscChars(content);
-		
+
 		this._idMap = {reference:content};
 		this._content = Utils.prepMenuContent(content, this._idMap);
 		this._misc = Utils.prepMenuContent(content.misc, this._idMap);
 		this._flavorChange();
 	}
-	
+
 	get content() {
 		return this._content;
 	}
-	
+
 	search(searchStr) {
 		function srch(kids, results) {
 			for (let i=0, l=kids.length; i<l; i++) {
@@ -51,7 +51,7 @@ export default class Reference {
 		}
 		return srch(this.content.kids, []).sort((a,b)=>b.__searchPoints - a.__searchPoints);
 	}
-	
+
 	idForToken(token) {
 		let errId = token.error && token.error.id;
 		if (this._idMap[errId]) { return errId; }
@@ -59,18 +59,18 @@ export default class Reference {
 		if (this._idMap[token.clss]) { return token.clss; }
 		return errId || token.type || token.clss;
 	}
-	
+
 // methods used in fillTags:
 	getChar(token) {
 		let chr = Reference.NONPRINTING_CHARS[token.code];
 		return chr ? chr : "\"" + String.fromCharCode(token.code) + "\"";
 	}
-	
+
 	getQuant(token) {
 		let min = token.min, max = token.max;
 		return min === max ? min : max === -1 ? min + " 或更多" : "在 " + min + " 和 " + max + " 之间";
 	}
-	
+
 	getUniCat(token) {
 		return Reference.UNICODE_CATEGORIES[token.value] || "[未识别]";
 	}
@@ -131,13 +131,13 @@ export default class Reference {
 	/*
 	Searches for tags in the string in the format:
 	`{{prop.prop}}` or `{{method(prop.prop)}}`
-	
+
 	The first format will inject the specified property of the data object.
 	For example, `{{a.b}}` would inject the value of `data.a.b`.
-	
+
 	The second will inject the results of calling the specified function on the functs object with a property of the data object as it's parameter (or the data object itself if empty).
 	For example, `{{myMethod(a.b)}}` would inject the return value of `functs.myMethod(data.a.b)`.
-	
+
 	Currently only supports a single param.
 	 */
 	fillTags(str, data, functs, maxLength=20, htmlSafe=true) {
@@ -171,7 +171,7 @@ export default class Reference {
 		}
 		return str;
 	}
-	
+
 	// returns doc props from the profile or reference as appropriate (ex. tip, desc, ext)
 	getVal(node, prop) {
 		if (!node) { return ""; }
@@ -180,10 +180,10 @@ export default class Reference {
 		let ref=(node&&node[prop])||"";
 		return pRef != null ? ref+pRef.substr(1) : ref;
 	}
-	
+
 	getNodeForToken(token) {
 		let id=this.idForToken(token), clss = token.clss;
-		
+
 		// Special cases:
 		if (clss === "quant") { id = clss; }
 		if (clss === "esc" && token.type !== "escsequence") { id = "escchar"; }
@@ -196,39 +196,42 @@ export default class Reference {
 		while (node&&node.proxy) { node = map[node.proxy]; }
 		return node;
 	}
-	
+
 	getError(error, token) {
 		let errId = error && error.id;
 		let str = this._content.errors[errId] || "无 error='" + errId + "' 的相关文档";
 		if (token) { str = this.fillTags(str, token, this, 20); }
 		return str;
 	}
-	
+
 	tipForToken(token) {
 		if (!token) { return null; }
 
-		let node = this.getNodeForToken(token), label, tip
+		let node = this.getNodeForToken(token), label, tip;
 
-		if (token.error) {
-			if (token.error.warning) { label = "<span class='error warning'>警告: </span>"; }
-			else { label = "<span class='error'>错误: </span>"; }
+		if (token.error && !token.error.warning) {
+			label = "<span class='error'>错误: </span>";
 			tip = this.getError(token.error, token);
 		} else {
 			label = node ? node.label || node.id || "" : token.type;
 			tip = this.getVal(node, "tip") || this.getVal(node, "desc");
 			tip = this.fillTags(tip, token, this, 20);
 			if (token.type === "group") { label += " #" + token.num; }
-			label = "<b>" + label[0].toUpperCase() + label.substr(1) + ".</b> ";
+			label = "<b>" + label[0].toUpperCase() + label.substr(1) + "。</b> ";
+
+			if (token.error) {
+				tip += "<span class='warningtext'><span class='error warning'>WARNING: </span>" + this.getError(token.error, token) + "</span>";
+			}
 		}
 
 		return tip ? label + tip :  "无 id='" + this.idForToken(token) + "' 的相关文档";
 	}
-	
+
 	getContent(id) {
 		let node = this.getNode(id);
 		return this.fillTags(this.getVal(node, "desc") + this.getVal(node, "ext"), node, this);
 	}
-	
+
 	// TODO: this isn't necessarily the most ideal place for this method (has nothing to do with Reference). Maybe move into Text?
 	tipForMatch(match, text) {
 		if (!match) { return null; }
@@ -247,17 +250,17 @@ export default class Reference {
 			s = (group.i !== undefined) ? text.substr(group.i, group.l) : group.s;
 			more = more || (s && s.length > 50);
 			str += (i > 0) ? "<br>" : "<hr>";
-			str += "<b>group #" + (i+1) + ": </b>" + Utils.shorten(s, 50, true, "i");
+			str += "<b>分组 #" + (i+1) + ": </b>" + Utils.shorten(s, 50, true, "i");
 		}
 		if (more) { str += "<br><span class='more'>点 详情 查看所有匹配</span>" }
 		return str;
 	};
-	
+
 // private methods:
 	_flavorChange() {
 		this._updateHide(this.content);
 	}
-	
+
 	_updateHide(o, list) {
 		// the list param is for debugging, it is populated with the ids of all nodes that were hidden.
 		// parent nodes aren't hidden unless all their children are.
@@ -282,7 +285,7 @@ export default class Reference {
 			kids.push(this._getEscCharDocs(chars[i], tokens[i], template));
 		}
 	}
-	
+
 	_getEscCharDocs(c, t, template) {
 		let code = c.charCodeAt(0), chr = Reference.NONPRINTING_CHARS[code] || c;
 		return {

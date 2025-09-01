@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use \core\Cache;
-
 namespace patterns;
 
 class load extends \core\AbstractAction {
@@ -40,12 +38,16 @@ class load extends \core\AbstractAction {
         }
 
         $sql = "SELECT p.*, ur.rating as userRating, fJoin.patternId as favorite
-            FROM patterns p
-            LEFT JOIN userRatings as ur ON ur.userId='{$userProfile->userId}' AND ur.patternId=p.id
-            LEFT JOIN favorites as fJoin ON fJoin.userId='{$userProfile->userId}' AND fJoin.patternId=p.id
-            WHERE p.id='{$patternId}' GROUP BY p.id
-        ";
-        $result = $this->db->query($sql, true);
+                FROM patterns p
+                LEFT JOIN userRatings as ur ON ur.userId=? AND ur.patternId=p.id
+                LEFT JOIN favorites as fJoin ON fJoin.userId=? AND fJoin.patternId=p.id
+                WHERE p.id=? GROUP BY p.id
+                ";
+        $result = $this->db->execute($sql, [
+            ["s", $userProfile->userId],
+            ["s", $userProfile->userId],
+            ["s", $patternId]
+        ], true);
 
         if (!is_null($result)) {
             // Check that the current user has access.
@@ -70,7 +72,10 @@ class load extends \core\AbstractAction {
     }
 
     function trackVisit($id) {
-        $this->db->query("UPDATE patterns SET visits=visits+1 WHERE id='{$id}'");
+        $sql = "UPDATE patterns SET visits=visits+1, lastAccessed=NOW() WHERE id=?";
+        $this->db->execute($sql, [
+            ["s", $id]
+        ]);
     }
 
     public function getSchema() {

@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 /**
  * Setup the bare minimum required to run the app.
  */
-error_reporting(error_reporting()^E_WARNING);
+
 $cwd = realpath(dirname(__FILE__));
 
 if (!file_exists("$cwd/Config.php")) {
@@ -72,13 +72,13 @@ function shutdown_handler() {
 
 spl_autoload_extensions('.php');
 spl_autoload_register(function ($class) {
-        $className = str_replace('\\', '/', $class) . '.php';
-        $fileName = __DIR__ . '/' . $className;
-        $actionsFilename = __DIR__ . '/actions/' . $className;
+    $className = str_replace('\\', '/', $class) . '.php';
+    $fileName = __DIR__ . '/' . $className;
+    $actionsFilename = __DIR__ . '/actions/' . $className;
 
-        if (file_exists($actionsFilename)) {
-            include $actionsFilename;
-        } else if (file_exists($fileName)) {
-            include $fileName;
-        }
+    if (file_exists($actionsFilename)) {
+        include $actionsFilename;
+    } else if (file_exists($fileName)) {
+        include $fileName;
+    }
 });

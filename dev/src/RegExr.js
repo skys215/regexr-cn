@@ -20,10 +20,8 @@ import EventDispatcher from "./events/EventDispatcher";
 
 import $ from "./utils/DOMUtils";
 import Utils from "./utils/Utils";
-import CMUtils from "./utils/CMUtils";
 
 import Tooltip from "./controls/Tooltip";
-import List from "./controls/List";
 
 import Server from "./net/Server";
 
@@ -32,18 +30,21 @@ import Text from "./views/Text";
 import Tools from "./views/Tools";
 import Sidebar from "./views/Sidebar";
 import Account from "./views/Account";
+import Theme from "./views/Theme";
 
 import Reference from "./docs/Reference";
 import reference_content from "./docs/reference_content";
 import Flavor from "./Flavor";
 
 import RefCoverage from "./RefCoverage";
+import Prefs from "./helpers/Prefs";
 
 export default class RegExr extends EventDispatcher {
 	constructor () { super(); }
-	
+
 	init(state, account, config={}) {
-		this.flavor = new Flavor("js");
+		this.prefs = new Prefs();
+		this.flavor = new Flavor();
 		this.reference = new Reference(reference_content, this.flavor, config);
 		this._migrateFavorites();
 		this._initUI();
@@ -59,6 +60,10 @@ export default class RegExr extends EventDispatcher {
 		this._savedHash = null;
 
 		let params = Utils.getUrlParams();
+		if (Utils.isLocal && params.id) {
+			Server.load(params.id).then((o) => this.state = o);
+			params = {};
+		}
 		if (params.engine) { this.flavor.value = params.engine; }
 		if (params.expression) { this.expression.value = params.expression; }
 		if (params.text) { this.text.value = params.text; }
@@ -66,7 +71,6 @@ export default class RegExr extends EventDispatcher {
 
 		window.onbeforeunload = (e) => this.unsaved ? "你有未保存的变动。" : null;
 		this.resetUnsaved();
-
 
 		//加载广告
 		this._initAds();
@@ -83,24 +87,28 @@ export default class RegExr extends EventDispatcher {
 		//Server.verify().then((data) => this.account.value = data);
 		new RefCoverage();
 	}
-	
+
 // getter / setters:
 	get state() {
 		let o = {
 			expression: this.expression.value,
 			text: this.text.value,
+			tests: this.text.tests,
 			flavor: this.flavor.value,
-			tool: this.tools.value
+			tool: this.tools.value,
+			mode: this.text.mode,
 		};
 		// copy share values onto the pattern object:
 		return Utils.copy(this.share.value, o);
 	}
-	
+
 	set state(o) {
 		if (!o) { return; }
 		this.flavor.value = o.flavor;
 		this.expression.value = o.expression;
 		this.text.value = o.text;
+		this.text.tests = o.tests;
+		this.text.mode = o.mode;
 		this.tools.value = o.tool;
 		this.share.pattern = o;
 		this.resetUnsaved();
@@ -113,6 +121,7 @@ export default class RegExr extends EventDispatcher {
 			+ this.text.value+"\t"
 			+ this.flavor.value+"\t"
 			+ share.author+"\t" + share.name+"\t" + share.description+"\t" + share.keywords+"\t"
+			+ JSON.stringify(this.text.tests)+"\t"
 			//+ this.tools.value.input+"\t"
 			//+ this.tools.value.id+"\t"
 		)
@@ -130,7 +139,7 @@ export default class RegExr extends EventDispatcher {
 	resetUnsaved() {
 		this._savedHash = this.hash;
 	}
-	
+
 	newDoc(warn=true) {
 		this.load({flavor: this.flavor.value, expression: ".", text:"文本"}, warn);
 		this.expression.selectAll();
@@ -141,7 +150,7 @@ export default class RegExr extends EventDispatcher {
 		if (warn && this.unsaved && !confirm(warn)) { return; }
 		this.state = Utils.clone(state);
 	}
-	
+
 // private methods:
 	_initUI() {
 		// TODO: break into own Device class? Rename mobile.scss too?
@@ -160,22 +169,24 @@ export default class RegExr extends EventDispatcher {
 			hover: new Tooltip($.query("#library #tooltip").cloneNode(true)),
 			toggle: new Tooltip($.query("#library #tooltip"), true)
 		};
-		
-		let el = $.query(".app > .doc", this.el);
+
+		this.theme = new Theme(this.el);
+
+		let el = this.docEl = $.query(".app > .doc", this.el);
 		this.expression = new Expression($.query("> section.expression", el));
 		this.text = new Text($.query("> section.text", el));
 		this.tools = new Tools($.query("> section.tools", el));
-		
+
 		this.account = new Account();
 		this.sidebar = new Sidebar($.query(".app > .sidebar", this.el));
 		this.share = this.sidebar.share;
-		
+
 		this.expression.on("change", ()=> this._change());
 		this.text.on("change", ()=> this._change());
+		this.text.on("modechange", ()=> this._modeChange());
 		this.flavor.on("change", ()=> this._change());
 		this.tools.on("change", ()=> this._change());
 		this.share.on("change", ()=> this._change());
-		this._change();
 	}
 
 	_migrateFavorites() {
@@ -191,20 +202,34 @@ export default class RegExr extends EventDispatcher {
 		if (!ids.length) { ls.setItem("f_v3", "1"); return; }
 		Server.multiFavorite(ids).then(() => ls.setItem("f_v3", "1"));
 	}
-	
+
 	_change() {
 		this.dispatchEvent("change");
-		var solver = this.flavor.solver, exp = this.expression;
-		solver.solve({pattern:exp.pattern, flags:exp.flags, text:this.text.value, tool:this.tools.value}, (result) => this._handleResult(result));
+		let solver = this.flavor.solver, exp = this.expression;
+		let o = {pattern:exp.pattern, flags:exp.flags, mode:this.text.mode};
+		if (o.mode === "tests") {
+			o.tests = this.text.tests;
+		} else {
+			o.text = this.text.value;
+			o.tool = this.tools.value;
+		}
+		solver.solve(o, (result) => this._handleResult(result));
 	}
-	
+
+	_modeChange() {
+		$.toggleClass(this.docEl, "tests-mode", this.text.mode === "tests");
+		this._change();
+	}
+
 	_handleResult(result) {
-		this.result = this._processResult(result);;
+		this.result = this._processResult(result);
 		this.dispatchEvent("result");
 	}
-	
+
 	_processResult(result) {
-		result.matches && result.matches.forEach((o, i)=>o.num=i);
+		if (result.mode === "text") {
+			result.matches && result.matches.forEach((o, i)=>o.num=i);
+		}
 		return result;
 	}
 }

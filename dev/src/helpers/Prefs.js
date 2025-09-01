@@ -16,28 +16,41 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import Utils from "../utils/Utils";
-import Server from "../net/Server";
 
-export default class ServerSolver {
-	
-	solve(o, callback) {
-		// unescape tool input:
-		if (o.tool && o.tool.input != null) { o.tool.input = Utils.unescSubstStr(o.tool.input); }
-		if (this._serverPromise) { this._serverPromise.abort(); }
-		Utils.defer(()=>this._solve(o, callback), "ServerSolver._solve", 250);
+export default class Prefs {
+	constructor (el) {
+		this._load();
+	}
+
+	read(key) {
+		return this._data[key];
+	}
+
+	write(key, value) {
+		if (this._data[key] === value) { return; }
+		this._data[key] = value;
+		this._save();
 	}
 	
-	_solve(o, callback) {
-		this._callback = callback;
-		this._serverPromise = Server.solve(o).then((o) => this._onLoad(o)).catch((o) => this._onError(o));
+	clear(key) {
+		delete(this._data[key]);
+		this._save();
 	}
 	
-	_onLoad(data) {
-		this._callback(data);
+	_load() {
+		let match = /(?:^|;\s*)prefs=\s*([^;]*)/.exec(document.cookie);
+		if (match && match[1]) {
+			try {
+				this._data = JSON.parse(unescape(match[1]));
+				return;
+			} catch (e) {}
+		}
+		this._data = {};
 	}
-	
-	_onError(msg) {
-		this._callback({error:{id:msg}});
+
+	_save() {
+		let str = escape(JSON.stringify(this._data));
+		document.cookie = "prefs="+str+"; expires=Fri, 31 Dec 9999 23:59:59 GMT;";
 	}
+
 }

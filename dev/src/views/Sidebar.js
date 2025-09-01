@@ -36,8 +36,10 @@ export default class Sidebar {
 		this._initUI(el);
 		this._content = this._prepContent(content);
 		this.minList.data = [{id: "menu", label:"Menu"}].concat(content.kids);
-		this.goto("home");
 		app.flavor.on("change", ()=>this._onFlavorChange());
+		let id = app.prefs.read("side");
+		if (!id || !this._idMap[id] || id === "share") { id = "home"; }
+		this.goto(id);
 		if (app.isNarrow) { setTimeout(() => this.minimize(true, false), 1500); }
 	}
 
@@ -62,6 +64,12 @@ export default class Sidebar {
 		if (!item || item.id === "menu") { return; } // expand button on the min menu
 		this.minimize(false);
 
+		if (item.id) {
+			if (item.id === "home" || (item.parent && item.parent.id === "home") || this._isInReference(item)) {
+				app.prefs.write("side", item.id);
+			}
+		}
+		
 		if (!item.el && !item.kids) {
 			if (this.searchMode || !item.parent || item.parent === this.curItem) {
 				// in a search, community / favorites, of selecting a leaf child from a list.
@@ -142,7 +150,13 @@ export default class Sidebar {
 		// list & content:
 		this.listEl = $.query("> .list", this.fullEl);
 		this.menuList = new List(this.listEl, {data:content.kids, template:this.menuListTemplate});
-		this.menuList.on("change", ()=> this.show(this.menuList.selectedItem));
+		this.menuList.on("change", () => {
+			const lastId = this.curItem.id;
+			this.show(this.menuList.selectedItem);
+			if (lastId !== this.curItem.id) {
+				Track.page("sidebar/"+this.curItem.id);
+			}
+		});
 		this.menuList.on("dblclick", ()=> this._onDblClick(this.menuList.selectedItem));
 		this.contentEl = $.query("> .content", this.fullEl);
 		
@@ -152,8 +166,8 @@ export default class Sidebar {
 		
 		let template = $.template`<svg class="icon"><use xlink:href="#${"id"}"></use></svg>`;
 		this.minList = new List($.query("> .list", this.minEl), {template});
-		this.minList.on("change", (evt)=> { this.show(this.minList.selectedItem); evt.preventDefault(); });
-		
+		this.minList.on("change", (evt)=> { this.show(this.minList.selectedItem); evt.preventDefault(); Track.page("sidebar/"+this.curItem.id); });
+
 		// set up special content:
 		this.community = new Community($.query("#library > #community"));
 		this.share = new Share($.query("#library > #share"));
@@ -193,9 +207,13 @@ export default class Sidebar {
 			if (o.example) { this.contentEl.appendChild(new Example("示例", o.example).el); }
 		}
 	}
-	
+
 	_isInReference(o) {
-		do { if (o.id === "reference") { return true; } } while (o = o.parent);
+		return this._isIn(o, "reference");
+	}
+
+	_isIn(o, id) {
+		do { if (o.id === id) { return true; } } while (o = o.parent);
 		return false;
 	}
 	

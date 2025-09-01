@@ -16,12 +16,22 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+/*
+TODO:
+Add analytics.
+Save / load - don't forget to assign IDs on load.
+Server solve.
+Issue with CM not updating in Text when loading pattern in Test mode.
+*/
+
 import $ from "../utils/DOMUtils";
 import Utils from "../utils/Utils";
+import UID from "../utils/UID";
 import CMUtils from "../utils/CMUtils";
 import TextHighlighter from "./TextHighlighter";
 import TextHover from "./TextHover";
 import EventDispatcher from "../events/EventDispatcher";
+import List from "../controls/List";
 
 import app from "../app";
 
@@ -30,27 +40,53 @@ export default class Text extends EventDispatcher {
 		super();
 		this.el = el;
 		this._initUI(el);
+		this._initTestUI(el);
 		app.on("result", () => this._setResult(app.result));
+		app.theme.on("change", () => this._handleThemeChange());
 	}
-	
+
 	set value(val) {
 		this.editor.setValue(val || this.defaultText);
 	}
-	
+
 	get value() {
 		return this.editor.getValue();
 	}
-	
+
+	set tests(val) {
+		if (!(val instanceof Array)) {
+			val = [];
+			$.removeClass(this.testsEl, "tests-added");
+		}
+		this._tests = this.testList.data = val;
+		this._testMatches = null;
+		this._reselectTest();
+	}
+
+	get tests() {
+		return this._tests;
+	}
+
+	set mode(val) {
+		if (val === this.mode) { return; }
+		this.modeList.selected = val || "text";
+		this._handleModeChange();
+	}
+
+	get mode() {
+		return this.modeList.selected;
+	}
+
 	get selectedMatch() {
 		let cm = this.editor;
 		return this.getMatchAt(cm.indexFromPos(cm.getCursor()), true);
 	}
-	
+
 	getMatchValue(match) {
 		// this also works for groups.
 		return match ? this.value.substr(match.i, match.l) : null;
 	}
-	
+
 	getMatchAt(index, inclusive) {
 		// also used by TextHover
 		let match, offset=(inclusive ? -1 : 0), matches=this._result && this._result.matches;
@@ -63,22 +99,40 @@ export default class Text extends EventDispatcher {
 		}
 		return null;
 	}
-	
+
+	getEmptyTest() {
+		return {
+			id: UID.id,
+			name: "",
+			text: "请填入测试文本",
+			type: "any"
+		}
+	}
+
 // private methods:
 	_initUI(el) {
 		this.resultEl = $.query("> header .result", el);
 		this.resultEl.addEventListener("mouseenter", (evt)=>this._mouseResult(evt));
 		this.resultEl.addEventListener("mouseleave", (evt)=>this._mouseResult(evt));
-		
-		let textEl = $.query("> .editor > .pad", el);
+
+		this.modeListEl = $.query("> header .modelist", el);
+		let data = [
+			{ label: "文本", id: "text"},
+			{ label: "测试用例", id: "tests"}
+		];
+		this.modeList = new List(this.modeListEl, {data});
+		this.modeList.on("change", ()=> this._handleModeChange());
+		this.modeList.selected = "text";
+
+		let textEl = $.query(".editor > .pad", el);
 		this.defaultText = $.query("textarea", textEl).value;
 		let editor = this.editor = CMUtils.create($.empty(textEl), {lineWrapping: true}, "100%", "100%");
 		editor.setValue(this.defaultText);
-		
+
 		editor.on("change", ()=> this._change());
 		editor.on("scroll", ()=> this._update());
 		editor.on("cursorActivity", () => this._updateSelected());
-		
+
 		let detector = $.create("iframe", "resizedetector", null, textEl), win = detector.contentWindow;
 		let canvas = this.canvas = $.create("canvas", "highlights", null, textEl);
 		textEl.appendChild(editor.display.wrapper); // move the editor on top of the iframe & canvas.
@@ -86,56 +140,89 @@ export default class Text extends EventDispatcher {
 		win.onresize = ()=> {
 			let w = win.innerWidth|0, h = win.innerHeight|0;
 			this._startResize();
-			Utils.defer(()=>this._handleResize(w, h), "text_resize", 250);
+			Utils.defer(() => this._handleResize(w, h), "text_resize", 250);
 		};
 		win.onresize();
-		
+
 		this.highlighter = new TextHighlighter(editor, canvas, $.getCSSValue("match", "color"), $.getCSSValue("selected-stroke", "color"));
 		this.hover = new TextHover(editor, this.highlighter);
 	}
-	
+
+	_handleThemeChange() {
+		this.highlighter.fill = $.getCSSValue("match", "color");
+		this.highlighter.stroke = $.getCSSValue("selected-stroke", "color");
+		this.highlighter.redraw();
+	}
+
+	_handleModeChange(evt) {
+		this.dispatchEvent("modechange");
+		if (this.mode === "text") { this.editor.refresh(); }
+		else { $.addClass(this.el, "tests-viewed"); }
+	}
+
 	_setResult(val) {
 		this._result = val;
-		this._updateEmptyCount();
-		this._updateResult();
-		this._deferUpdate();
-	}
-	
-	_updateResult() {
-		let result = this._result, matches=result&&result.matches, l=matches&&matches.length, el = this.resultEl;
-		$.removeClass(el, "错误 警告 结果");
-		if (result && result.error) {
-			el.innerText = result.error.warning ? "警告" : "错误";
-			$.addClass(el, "错误");
-			if (result.error.warning) { $.addClass(el, "警告"); }
-		} else if (l) {
-			el.innerHTML = l + " 结果" + (l>1?"":"") + (this._emptyCount?"*":"");
-			$.addClass(el, "结果");
-		} else {
-			el.innerText = "无结果";
+		this._testMatches = null;
+
+		if (this.mode !== val.mode) { return; }
+		if (val.mode === "tests") {
+			this._updateTests();
+		} else { // mode === "text"
+			this._updateEmptyCount();
+			this._updateResult();
+			this._updateSelected();
+			this._deferUpdate();
 		}
-		if (result.time != null) {  el.innerHTML += "<em> ("+parseFloat(result.time).toFixed(1)+"ms)</em>"; }
-		this._updateSelected();
 	}
-	
+
+	_deferUpdate() {
+		Utils.defer(()=>this._update(), "Text._update");
+	}
+
+	_update() {
+		let result = this._result, matches = result && result.matches;
+		if (result && result.mode === "tests") {
+			this._updateTests();
+		} else { // mode === "text"
+			this.hover.matches = this.highlighter.matches = matches;
+		}
+	}
+
+	_updateResult() {
+		let result = this._result, matches=result&&result.matches, l=matches&&matches.length, text;
+
+		if (l && result && !result.error) {
+			text = l + " 结果" + (this._emptyCount?"*":"");
+		} else if (!result || !result.error) {
+			text = "无结果";
+		}
+		this._showResult(text);
+	}
+
+	_showResult(text, clss) {
+		let result = this._result, el = this.resultEl;
+		$.removeClass(el, "error warning matches pass fail");
+
+		if (result && result.error) {
+			if (!text) { text = result.error.warning ? "警告" : "错误"; }
+			$.addClass(el, "error");
+			if (result.error.warning) { $.addClass(el, "warning"); }
+		}
+
+		if (clss) { $.addClass(el, clss); }
+		el.innerHTML = text;
+		if (result.time != null) {  el.innerHTML += "<em> ("+parseFloat(result.time).toFixed(1)+"毫秒)</em>"; }
+	}
+
 	_updateSelected() {
 		let match = this.selectedMatch;
 		if (this.highlighter.selectedMatch === match) { return; }
 		this.highlighter.selectedMatch = match;
 		this.dispatchEvent("select");
 	}
-	
+
 	_change() {
 		this.dispatchEvent("change");
-	}
-	
-	_deferUpdate() {
-		Utils.defer(()=>this._update(), "Text._update");
-	}
-	
-	_update() {
-		let result = this._result, matches = result && result.matches;
-		this.hover.matches = this.highlighter.matches = matches;
 	}
 
 	_startResize() {
@@ -145,7 +232,7 @@ export default class Text extends EventDispatcher {
 		// keeps it from causing scrollbars:
 		canvas.width = canvas.height = 1;
 	}
-	
+
 	_mouseResult(evt) {
 		let tt = app.tooltip.hover, res=this._result, err = res&&res.error, str="";
 		if (evt.type === "mouseleave") { return tt.hide("result"); }
@@ -155,13 +242,23 @@ export default class Text extends EventDispatcher {
 			if (err && err.warning) {
 				str = "<span class='error warning'>警告：</span> "+ this._errorText(err) + "<hr>";
 			}
-			let l = res&&res.matches&&res.matches.length;
-			str += "在 "+this.value.length+" 中" +(l?"找到":"无")+"结果";
-			str += this._emptyCount  ? ", 其中 "+this._emptyCount+" 空结果(未显示 \"*\")。" : "。";
-			let cm = this.editor, sel = cm.listSelections()[0], pos = sel.head;
-			let i0 = cm.indexFromPos(pos), i1=cm.indexFromPos(sel.anchor), range=Math.abs(i0-i1);
-			str += "<hr>插入点： "+pos.line+" 行, "+pos.ch+"列, 下标 "+i0;
-			str += (range>0 ? " (已选中 "+range+" 字符)" : "")
+			let l = this._tests.length;
+			if (this.mode === "tests") {
+				if (this._tests.length === 0) {
+					str += "用'添加测试'按钮创建新的测试。";
+				} else if (this._testFails) {
+					str += this._testFails+"/"+l+"个测试失败。";
+				} else {
+					str += "所有共 "+l+" 个测试通过。";
+				}
+			} else {
+				str += "在 "+this.value.length+"字符中"+(l?"找到":"无")+"结果";
+				str += this._emptyCount  ? ", 其中 "+this._emptyCount+" 空结果(未显示 \"*\")。" : "。";
+				let cm = this.editor, sel = cm.listSelections()[0], pos = sel.head;
+				let i0 = cm.indexFromPos(pos), i1=cm.indexFromPos(sel.anchor), range=Math.abs(i0-i1);
+				str += "<hr>插入点：  "+pos.line+", 行 "+pos.ch+"列, 下标 "+i0;
+				str += (range>0 ? " (已选中"+range+" 字符)" : "");
+			}
 		}
 		tt.showOn("result", str, this.resultEl, false, -2);
 	}
@@ -170,11 +267,11 @@ export default class Text extends EventDispatcher {
 		let result = this._result, matches = result && result.matches;
 		this._emptyCount = matches ? matches.reduce((v,o)=>v+(o.l?0:1),0) : 0;
 	}
-	
+
 	_errorText(err) {
 		return err.message || app.reference.getError(err);
 	}
-	
+
 	_handleResize(w, h) {
 		let canvas = this.canvas, style=canvas.style;
 		style.visibility = style.opacity = "";
@@ -182,5 +279,190 @@ export default class Text extends EventDispatcher {
 		canvas.height = h;
 		this.editor.refresh();
 		this._deferUpdate();
+	}
+
+// Test mode:
+	_initTestUI(el) {
+		const types = [
+			{id:"all", label:"匹配全部"},
+			{id:"any", label:"匹配任何"},
+			// {id:"start", label:"Match Start"},
+			{id:"none", label:"不匹配"},
+		];
+		this.typeLabels = types.reduce((o, t) => { o[t.id] = t.label; return o; }, {});
+
+		this.testsEl = $.query(".tests", el);
+		this.testItemEl = $.query("#library > #tests_item");
+		this.testListEl = $.query(".list", this.testsEl);
+		this.testList = new List(this.testListEl, {template:(o) => this._testItemTemplate(o)});
+		this.testList.scrollEl = this.testsEl;
+
+		this.testList.on("change", (evt) => this._handleTestChange(evt));
+
+		$.on($.queryAll(".button.add", el), "click", ()=>this._addTest());
+
+		const template = $.template`<svg class="inline check icon"><use xlink:href="#check"></use></svg> ${"label"}`;
+		this.typesEl = $.query("#library #tooltip-testtypes");
+		this.typesList = new List($.query("ul.list", this.typesEl), {data:types, template});
+		this.typesList.on("change", ()=> this._handleTypesChange());
+
+		this.tests = null;
+	}
+
+	_updateTests() {
+		let result = this._result;
+		if (result.error) { return this._showResult(); }
+
+		let data = this._tests, l=data.length;
+		if (!data || !l) { return this._showResult("无测试."); }
+
+		let matches = result.matches.reduce((o, t) => { o[t.id] = t; return o; }, {}), fails=0;
+		for (let i=0; i<l; i++) {
+			let test = data[i], match=matches[test.id], pass=false, el=this.testList.getEl(test.id);
+			if (test.type === "none") {
+				pass = (match.i == null);
+			} else if (test.type === "all") {
+				pass = (match.l === test.text.length);
+			} else if (test.type === "start") {
+				pass = (match.i === 0);
+			} else { // any
+				pass = (match.i != null);
+			}
+			$.toggleClass(el, "fail", !pass);
+			if (!pass) { fails++; }
+		}
+
+		this._testFails = fails;
+		this._testMatches = matches;
+		if (fails) {
+			this._showResult(fails+" 未通过", "fail");
+		} else {
+			this._showResult("通过", "pass");
+		}
+
+		this._updateSelTest();
+	}
+
+	_updateSelTest() {
+		if (this._testMark) { this._testMark.clear(); }
+		let matches = this._testMatches, el = this.testList.selectedEl;
+		if (!el || !matches) { return; }
+		let match = matches[this.testList.selected], cm = this.testEditor;
+		if (match && match.i != null) {
+			let pos = CMUtils.calcRangePos(cm, match.i, match.l);
+			this._testMark = this.testEditor.getDoc().markText(pos.startPos, pos.endPos, {className:"match"});
+		}
+	}
+
+	_testItemTemplate(o) {
+		let el = this.testItemEl.cloneNode(true);
+		let typeBtn = $.query("header .button.type", el);
+		typeBtn.addEventListener("click", (evt) => this._showTypes(typeBtn, o));
+
+		let delBtn = $.query("header .delete", el);
+		delBtn.addEventListener("click", (evt) => this._deleteTest(o));
+
+		let nameFld = $.query("header .name", el);
+		nameFld.addEventListener("input", () => this._handleTestNameChange(nameFld, o));
+
+		this._updateTestHeader(o, el, false);
+
+		return el;
+	}
+
+	_updateTestHeader(o, el, edit) {
+		let nameFld = $.query("header .name", el);
+		nameFld.value = o.name||"";
+		nameFld.placeholder = o.text && !edit ? o.text.substr(0, 100) : "未命名测试";
+
+		let typeLbl = $.query("header .button.type .label", el);
+		typeLbl.innerText = this.typeLabels[o.type];
+	}
+
+	_addTest() {
+		const o = this.getEmptyTest();
+		this._tests.push(o);
+		this.testList.addItem(o, true);
+		this._handleTestChange();
+		this.testEditor.execCommand("selectAll");
+		$.addClass(this.testsEl, "tests-added");
+		this._change();
+	}
+
+	_reselectTest() {
+		if (this._selTest) {
+			this.testList.selected = this._selTest.id;
+		}
+		if (!this._selTest || this.testList.selected == null) {
+			this.testList.selectedIndex = 0;
+		}
+		this._selTest = null;
+		this._handleTestChange();
+	}
+
+	_handleTestChange() {
+		let el, o;
+		if (this._selTest) {
+			o = this._selTest;
+			el = this.testList.getEl(o.id);
+			this._updateTestHeader(o, el, false);
+		}
+
+		el = this.testList.selectedEl;
+		o = this._selTest = this.testList.selectedItem;
+
+		if (!o) { return; }
+
+		this._getTestEditor($.query("article .editor .pad", el), o);
+		this._updateTestHeader(o, el, true);
+		this._updateSelTest();
+		this.testEditor.focus();
+		this.testEditor.setCursor(this.testEditor.lineCount(), 0);
+	}
+
+	_handleTestNameChange(fld, o) {
+		o.name = fld.value;
+		this._change();
+	}
+
+	_handleTypesChange() {
+		let el = this.testList.selectedEl, o = this.testList.selectedItem;
+		o.type = this.typesList.selectedItem.id;
+		app.tooltip.toggle.hide("testtypes");
+		this._updateTestHeader(o, el, true);
+		this._change();
+	}
+
+	_handleTestTextChange(change) {
+		this._selTest.text = this.testEditor.getValue();
+		if (change.origin !== "setValue") { this._change(); }
+	}
+
+	_showTypes(el, o) {
+		this.typesList.selected = o.type;
+		app.tooltip.toggle.toggleOn("testtypes", this.typesEl, el, true, -2);
+	}
+
+	_deleteTest(o) {
+		let data = this._tests;
+		let i = data.indexOf(o);
+		data.splice(i, 1);
+		this._selTest = null;
+		this.testList.removeItem(o.id);
+		if (data.length) { this.testList.selected = data[Math.min(i, data.length-1)].id; }
+		this._updateTests();
+		this._handleTestChange();
+		this._change();
+	}
+
+	_getTestEditor(el, o) {
+		let cm = this.testEditor;
+		if (!cm) {
+			cm = this.testEditor = CMUtils.create($.empty(el), {lineWrapping: true}, "100%", "100%");
+			cm.on("change", (a, b) => this._handleTestTextChange(b));
+		} else {
+			el.appendChild(cm.getWrapperElement());
+		}
+		cm.setValue(o.text);
 	}
 }
