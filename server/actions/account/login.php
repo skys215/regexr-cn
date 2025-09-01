@@ -146,7 +146,7 @@ class login extends \core\AbstractAction {
                 }
 
                 $this->db->execute("INSERT INTO users (email, username, authorName, type, oauthUserId, lastLogin)
-                                    VALUES (?, ?, ?, ?, ? ,'NOW()')
+                                    VALUES (?, ?, ?, ?, ? ,NOW())
                                     ON DUPLICATE KEY UPDATE `username`=?, `oauthUserId`=?, `lastLogin`=NOW()
                                 ", [
                                     ["s", $email],
